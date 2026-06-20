@@ -32,7 +32,7 @@ VIDEO_HEIGHT = 1920
 FPS = 30
 TTS_VOICE = "en-US-GuyNeural"
 CHANNEL_NAME = "Lingexa Etymology"
-WORDS_PER_VIDEO = 5
+WORDS_PER_VIDEO = 3
 WORD_HISTORY_FILE = HISTORY_DIR / "all_generated_words.json"
 FONTS_DIR = Path(__file__).parent / "fonts"
 
@@ -124,11 +124,13 @@ STRICT RULES:
 - Every word must be different from all others in your response
 - Choose OBSCURE and INTERESTING words with rich history
 
-CRITICAL: For each word, provide its ORIGIN STORY - where it came from, how it evolved.
-Focus on the ETYMOLOGY (word origin/history), NOT just the definition.
+CRITICAL: KEEP EVERY FIELD SHORT.
+- definition: max 8 words
+- example: max 8 words
+- origin: max 20 words (ONE short sentence)
 
 Format for each word:
-{{"word": "word", "part_of_speech": "noun/verb/adjective/adverb", "definition": "simple definition under 12 words", "example": "example sentence under 10 words", "origin": "detailed etymology - 1-2 sentences about where this word came from", "century": "century it entered English (e.g. 14th century, 1600s)", "language": "language of origin (e.g. Greek, Latin, French, Old English, Arabic, etc.)"}}
+{{"word": "word", "part_of_speech": "noun/verb/adjective/adverb", "definition": "short definition", "example": "short example", "origin": "brief 1-sentence etymology", "century": "century it entered English (e.g. 14th century, 1600s)", "language": "language of origin"}}
 
 Return ONLY the JSON array. Nothing else."""
             payload = {"model": AI_MODEL, "messages": [{"role": "system", "content": "You are an etymology expert. Return ONLY valid JSON arrays."}, {"role": "user", "content": prompt}], "temperature": 1.5}
@@ -472,6 +474,9 @@ def generate_word_image(word_data: dict, bg_image, output_path: str):
     y_cursor += 60
 
     def_lines = wrap_text(draw, definition, font_def, CONTENT_WIDTH - 70)
+    while len(def_lines) > 2 and font_def.size > 40:
+        font_def = load_font(fonts_regular, font_def.size - 4)
+        def_lines = wrap_text(draw, definition, font_def, CONTENT_WIDTH - 70)
     def_lines_count = len(def_lines)
     char_bbox = draw.textbbox((0, 0), "A", font=font_def)
     line_height = char_bbox[3] - char_bbox[1]
@@ -493,6 +498,9 @@ def generate_word_image(word_data: dict, bg_image, output_path: str):
     y_cursor += 60
 
     ex_lines = wrap_text(draw, example, font_ex, CONTENT_WIDTH - 70)
+    while len(ex_lines) > 2 and font_ex.size > 36:
+        font_ex = load_font(fonts_regular, font_ex.size - 4)
+        ex_lines = wrap_text(draw, example, font_ex, CONTENT_WIDTH - 70)
     ex_lines_count = len(ex_lines)
     ex_char_bbox = draw.textbbox((0, 0), "A", font=font_ex)
     ex_line_height = ex_char_bbox[3] - ex_char_bbox[1]
@@ -509,7 +517,7 @@ def generate_word_image(word_data: dict, bg_image, output_path: str):
     img.paste(ex_box, (MARGIN_X, y_cursor), ex_box)
     y_cursor += ex_box_h + 65
 
-    if origin:
+    if origin and y_cursor < VIDEO_HEIGHT - 320:
         origin_label = "WORD ORIGIN"
         draw.text((MARGIN_X, y_cursor), origin_label, fill=(25, 30, 60), font=font_origin_label, anchor="lm")
         y_cursor += 60
@@ -519,6 +527,9 @@ def generate_word_image(word_data: dict, bg_image, output_path: str):
             origin_display = f"{origin}  —  Entered English: {century}"
 
         origin_lines = wrap_text(draw, origin_display, font_origin, CONTENT_WIDTH - 70)
+        while len(origin_lines) > 3 and font_origin.size > 34:
+            font_origin = load_font(fonts_regular, font_origin.size - 4)
+            origin_lines = wrap_text(draw, origin_display, font_origin, CONTENT_WIDTH - 70)
         origin_char_bbox = draw.textbbox((0, 0), "A", font=font_origin)
         origin_line_height = origin_char_bbox[3] - origin_char_bbox[1]
         origin_line_spacing = int(origin_line_height * 1.6)
