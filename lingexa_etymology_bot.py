@@ -109,12 +109,12 @@ def generate_word_data(num_words: int = WORDS_PER_VIDEO) -> list:
                 context_words = list(set(random_seed + recent_100))
                 random.shuffle(context_words)
             elif len(all_used) > 100:
-                context_words = all_used[-100:]
+                context_words = list(all_used[-100:])
             else:
-                context_words = all_used
-            context_words.extend(collected)
+                context_words = list(all_used)
+            context_words.extend([c.get("word") or str(c) for c in collected if isinstance(c, dict)])
             print(f"[api] History: {len(all_used)} used + {len(collected)} collected this run, sending {len(context_words)} context words")
-            used_list = ", ".join(context_words) if context_words else "(none yet)"
+            used_list = ", ".join(str(w) for w in context_words if isinstance(w, str)) if context_words else "(none yet)"
             prompt = f"""Generate exactly 20 unique English words with fascinating etymology from the {category} domain.
 
 STRICT RULES:
@@ -189,11 +189,28 @@ Return ONLY the JSON array. Nothing else."""
                 print(f"[api] HTTP {status} indicates auth/payment issue, but continuing retries...")
         except Exception as e:
             print(f"[api] Attempt {attempt + 1}/{max_attempts} FAILED: {type(e).__name__}: {e}")
+    if len(collected) < num_words:
+        print("[fallback] Checking curated fallback etymology bank for unused words...")
+        fallback_etymology = [
+            {"word": "clue", "part_of_speech": "noun", "definition": "guide to solve puzzle", "example": "A clue solved the case.", "origin": "Old English cleowen meant ball of thread, used by Theseus in the labyrinth.", "century": "14th century", "language": "Old English"},
+            {"word": "serendipity", "part_of_speech": "noun", "definition": "happy accidental discovery", "example": "Meeting him was pure serendipity.", "origin": "Coined by Horace Walpole from Persian fairy tale 'Three Princes of Serendip'.", "century": "18th century", "language": "Persian"},
+            {"word": "tarantula", "part_of_speech": "noun", "definition": "large hairy spider", "example": "The tarantula crawled quietly.", "origin": "From Italian city Taranto, where dancing the tarantella cured spider bites.", "century": "16th century", "language": "Italian"},
+            {"word": "sarcasm", "part_of_speech": "noun", "definition": "ironic mocking speech", "example": "Her voice dripped sarcasm.", "origin": "Greek sarkazein meant literally 'to tear flesh like dogs'.", "century": "16th century", "language": "Greek"},
+            {"word": "quarantine", "part_of_speech": "noun", "definition": "isolation for disease control", "example": "The ship entered quarantine.", "origin": "Venetian quaranta giorni meant forty days isolation for incoming plague ships.", "century": "17th century", "language": "Italian"}
+        ]
+        for fb in fallback_etymology:
+            w_clean = fb["word"].lower().strip()
+            if w_clean not in used_set:
+                collected.append(fb)
+                used_set.add(w_clean)
+                print(f"  [fallback] Added unused curated word: '{w_clean}'")
+                if len(collected) >= num_words:
+                    break
     if collected:
-        print(f"[api] WARNING: Only got {len(collected)}/{num_words} words after {max_attempts} attempts, using partial set")
-        add_words_to_history([w["word"] for w in collected])
-        return collected
-    raise RuntimeError("API failed all attempts - cannot generate words. Check POLLINATIONS_API_KEY and AI_MODEL in .env")
+        print(f"[api] Using {len(collected)} items")
+        add_words_to_history([w["word"] for w in collected[:num_words]])
+        return collected[:num_words]
+    raise RuntimeError("API failed all attempts and no unused fallback words available.")
 
 def create_background():
     from PIL import Image, ImageDraw
